@@ -1,0 +1,20 @@
+# 核心依赖
+python-dotenv>=0.19.0
+typing-extensions>=4.0.0
+
+# 邮件处理
+msal>=1.20.0  # Microsoft身份认证库
+requests>=2.28.0  # HTTP请求
+
+# AI模型
+google-genai>=0.3.0  # Gemini AI SDK
+
+# 定时任务
+APScheduler>=3.10.0  # 调度器
+pytz>=2023.3  # 时区支持
+
+# 工具模块（本地安装）
+# 注意：需要先安装workflow-tools
+# cd workflow-tools && pip install -e .[all]
+
+
