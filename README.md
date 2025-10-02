@@ -16,24 +16,27 @@
 
 ```
 daily_summary_outlook/
-├── workflow-tools/          # 可重用的工具模块（类似n8n的节点）
-│   └── workflow_tools/
-│       ├── email/          # 邮件处理模块
-│       │   ├── base/
-│       │   └── outlook/
-│       ├── ai_models/      # AI模型模块
-│       │   └── gemini/
-│       ├── scheduler/      # 调度器模块
-│       ├── storage/        # 存储模块
-│       ├── notes/          # 笔记模块
-│       └── utils/          # 工具模块
 ├── main.py                 # 主程序
 ├── config.py               # 配置文件
 ├── requirements.txt        # 依赖列表
 ├── env.example            # 环境变量示例
+├── workflow-tools/         # 可重用的工具模块（类似n8n的节点）
+│   └── workflow_tools/
+│       ├── email/          # 邮件处理模块
+│       ├── ai_models/      # AI模型模块
+│       ├── scheduler/      # 调度器模块
+│       ├── storage/        # 存储模块
+│       ├── notes/          # 笔记模块
+│       └── utils/          # 工具模块
+├── docs/                   # 文档目录
+├── tests/                  # 测试目录
+├── scripts/                # 脚本目录
 ├── logs/                   # 日志目录
-└── history/                # 历史记录目录
+├── history/                # 历史记录目录
+└── archived/               # 归档目录
 ```
+
+> 📖 详细的目录结构说明请参考 [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 
 ## 安装步骤
 

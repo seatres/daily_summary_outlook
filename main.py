@@ -10,7 +10,7 @@
 import sys
 import signal
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 from typing import List
@@ -19,6 +19,8 @@ from typing import List
 sys.path.insert(0, str(Path(__file__).parent / "workflow-tools"))
 
 from workflow_tools.email.outlook import OutlookClient
+from workflow_tools.email.outlook.outlook_imap_client import OutlookIMAPClient
+from workflow_tools.email import GenericIMAPClient, QQIMAPClient
 from workflow_tools.ai_models.gemini import GeminiClient
 from workflow_tools.scheduler import APSchedulerClient
 from workflow_tools.utils.config_manager import ConfigManager
@@ -56,7 +58,7 @@ class DailySummaryWorkflow:
         handlers.append(console_handler)
 
         # 文件处理器
-        log_file = config.LOG_DIR / f"workflow_{datetime.now().strftime('%Y%m%d')}.log"
+        log_file = config.LOG_DIR / f"workflow_{datetime.now(timezone.utc).strftime('%Y%m%d')}.log"
         file_handler = logging.handlers.RotatingFileHandler(
             log_file,
             maxBytes=config.LOG_FILE_MAX_BYTES,
@@ -79,15 +81,51 @@ class DailySummaryWorkflow:
         try:
             self.logger.info("正在初始化客户端...")
 
-            # 初始化邮件客户端
-            self.email_client = OutlookClient(
-                email_address=config.OUTLOOK_EMAIL,
-                client_id=config.OUTLOOK_CLIENT_ID,
-                client_secret=config.OUTLOOK_CLIENT_SECRET,
-                tenant_id=config.OUTLOOK_TENANT_ID,
-                smtp_password=config.OUTLOOK_SMTP_PASSWORD
-            )
-            self.logger.info("✓ 邮件客户端初始化成功")
+            # 初始化邮件客户端(根据配置选择类型)
+            client_type = config.EMAIL_CLIENT_TYPE.lower()
+            
+            if client_type == 'imap':
+                self.logger.info("使用Outlook IMAP客户端...")
+                self.email_client = OutlookIMAPClient(
+                    email_address=config.OUTLOOK_EMAIL,
+                    password=config.OUTLOOK_IMAP_PASSWORD or config.OUTLOOK_SMTP_PASSWORD
+                )
+                self.logger.info("✓ Outlook IMAP邮件客户端初始化成功")
+            elif client_type == 'graph':
+                self.logger.info("使用Outlook Graph API客户端...")
+                self.email_client = OutlookClient(
+                    email_address=config.OUTLOOK_EMAIL,
+                    client_id=config.OUTLOOK_CLIENT_ID,
+                    client_secret=config.OUTLOOK_CLIENT_SECRET,
+                    tenant_id=config.OUTLOOK_TENANT_ID,
+                    smtp_password=config.OUTLOOK_SMTP_PASSWORD
+                )
+                self.logger.info("✓ Outlook Graph API邮件客户端初始化成功")
+            elif client_type == 'qq':
+                self.logger.info("使用QQ邮箱客户端...")
+                self.email_client = QQIMAPClient(
+                    email_address=config.EMAIL_ADDRESS,
+                    password=config.EMAIL_PASSWORD,
+                    use_ssl_for_smtp=(config.SMTP_USE_SSL.lower() == 'true')
+                )
+                self.logger.info("✓ QQ邮箱客户端初始化成功")
+            elif client_type == 'generic':
+                self.logger.info("使用通用IMAP客户端...")
+                self.email_client = GenericIMAPClient(
+                    email_address=config.EMAIL_ADDRESS,
+                    password=config.EMAIL_PASSWORD,
+                    imap_server=config.IMAP_SERVER,
+                    imap_port=int(config.IMAP_PORT),
+                    smtp_server=config.SMTP_SERVER,
+                    smtp_port=int(config.SMTP_PORT),
+                    use_ssl_for_smtp=(config.SMTP_USE_SSL.lower() == 'true')
+                )
+                self.logger.info("✓ 通用IMAP邮件客户端初始化成功")
+            else:
+                raise ValueError(
+                    f"不支持的邮件客户端类型: {client_type}. "
+                    f"请使用'imap', 'graph', 'qq'或'generic'"
+                )
 
             # 初始化AI客户端
             self.ai_client = GeminiClient(
@@ -103,13 +141,13 @@ class DailySummaryWorkflow:
             return True
 
         except Exception as e:
-            self.logger.error(f"✗ 客户端初始化失败: {str(e)}")
+            self.logger.error(f"✗ 客户端初始化失败: {str(e)}", exc_info=True)
             return False
 
     def process_daily_summary(self):
         """处理每日总结的主要逻辑"""
         self.logger.info("=" * 80)
-        self.logger.info(f"开始执行每日总结任务 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        self.logger.info(f"开始执行每日总结任务 - {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
         self.logger.info("=" * 80)
 
         try:
@@ -179,7 +217,7 @@ class DailySummaryWorkflow:
                 self.email_client.connect()
 
                 # 计算时间范围（最近24小时）
-                since_date = datetime.now() - timedelta(hours=config.EMAIL_SEARCH_HOURS)
+                since_date = datetime.now(timezone.utc) - timedelta(hours=config.EMAIL_SEARCH_HOURS)
 
                 # 获取邮件
                 result = self.email_client.fetch_emails(
@@ -199,7 +237,7 @@ class DailySummaryWorkflow:
                     continue
 
             except Exception as e:
-                self.logger.error(f"获取邮件时发生异常: {str(e)}")
+                self.logger.error(f"获取邮件时发生异常: {str(e)}", exc_info=True)
                 if attempt < max_retries - 1:
                     self.logger.info(f"将在{config.RETRY_DELAY}秒后重试...")
                     import time
@@ -271,7 +309,7 @@ class DailySummaryWorkflow:
                     continue
 
             except Exception as e:
-                self.logger.error(f"AI分析时发生异常: {str(e)}")
+                self.logger.error(f"AI分析时发生异常: {str(e)}", exc_info=True)
                 if attempt < max_retries - 1:
                     self.logger.info(f"将在{config.RETRY_DELAY}秒后重试...")
                     import time
@@ -296,7 +334,7 @@ class DailySummaryWorkflow:
         for attempt in range(max_retries):
             try:
                 # 构建邮件主题
-                today = datetime.now().strftime('%Y-%m-%d')
+                today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
                 subject = config.EMAIL_SUBJECT_TEMPLATE.format(date=today)
 
                 # 发送邮件
@@ -316,7 +354,7 @@ class DailySummaryWorkflow:
                     continue
 
             except Exception as e:
-                self.logger.error(f"发送邮件时发生异常: {str(e)}")
+                self.logger.error(f"发送邮件时发生异常: {str(e)}", exc_info=True)
                 if attempt < max_retries - 1:
                     self.logger.info(f"将在{config.RETRY_DELAY}秒后重试...")
                     import time
@@ -342,7 +380,7 @@ class DailySummaryWorkflow:
             return
 
         try:
-            timestamp = datetime.now()
+            timestamp = datetime.now(timezone.utc)
             history_file = config.HISTORY_DIR / f"history_{timestamp.strftime('%Y%m%d_%H%M%S')}.json"
 
             history_data = {
@@ -390,7 +428,7 @@ class DailySummaryWorkflow:
             self.logger.info(f"历史记录已保存: {history_file}")
 
         except Exception as e:
-            self.logger.error(f"保存历史记录失败: {str(e)}")
+            self.logger.error(f"保存历史记录失败: {str(e)}", exc_info=True)
 
     def setup_schedule(self):
         """设置定时任务"""
@@ -408,29 +446,44 @@ class DailySummaryWorkflow:
             self.logger.info("✓ 定时任务设置成功")
 
         except Exception as e:
-            self.logger.error(f"✗ 设置定时任务失败: {str(e)}")
+            self.logger.error(f"✗ 设置定时任务失败: {str(e)}", exc_info=True)
             raise
 
-    def run(self):
-        """运行工作流"""
+    def run(self, run_once=False):
+        """
+        运行工作流
+
+        Args:
+            run_once: 如果为True，执行一次后退出；如果为False，启动定时任务持续运行
+        """
         try:
             # 初始化客户端
             if not self.initialize_clients():
                 self.logger.error("客户端初始化失败，程序退出")
                 sys.exit(1)
 
-            # 设置定时任务
-            self.setup_schedule()
+            if run_once:
+                # 立即执行一次任务
+                self.logger.info("执行模式: 立即执行一次")
+                self.process_daily_summary()
+                self.logger.info("任务执行完成，程序退出")
+                sys.exit(0)
+            else:
+                # 定时任务模式
+                self.logger.info("执行模式: 定时任务")
 
-            # 启动调度器
-            self.scheduler.start()
-            self.logger.info("调度器已启动，等待任务执行...")
-            self.logger.info(f"下次执行时间: 每天 {config.SCHEDULE_HOUR}:{config.SCHEDULE_MINUTE:02d} ({config.TIMEZONE})")
+                # 设置定时任务
+                self.setup_schedule()
 
-            # 保持程序运行
-            import time
-            while True:
-                time.sleep(1)
+                # 启动调度器
+                self.scheduler.start()
+                self.logger.info("调度器已启动，等待任务执行...")
+                self.logger.info(f"下次执行时间: 每天 {config.SCHEDULE_HOUR}:{config.SCHEDULE_MINUTE:02d} ({config.TIMEZONE})")
+
+                # 保持程序运行
+                import time
+                while True:
+                    time.sleep(1)
 
         except (KeyboardInterrupt, SystemExit):
             self.logger.info("收到退出信号，正在关闭...")
@@ -449,10 +502,17 @@ class DailySummaryWorkflow:
 def main():
     """主函数"""
     import logging.handlers
+    import argparse
+
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='每日总结邮件自动化工作流')
+    parser.add_argument('--once', action='store_true',
+                       help='立即执行一次任务后退出（用于定时触发）')
+    args = parser.parse_args()
 
     # 创建并运行工作流
     workflow = DailySummaryWorkflow()
-    workflow.run()
+    workflow.run(run_once=args.once)
 
 
 if __name__ == "__main__":

@@ -21,7 +21,20 @@ pip install -e .[all]
 
 # 按需安装
 pip install -e .[ai,notes,storage,email,scheduler]
+
+# 验证依赖安装
+python validate_dependencies.py -v
 ```
+
+### 依赖边界检查
+
+本包实现了完善的依赖验证机制，在安装时自动检查依赖状态：
+
+- ✅ **安装时验证**: 自动检测并提示缺失的依赖
+- 🔍 **独立验证工具**: 随时手动检查依赖状态
+- 🛡️ **运行时保护**: 使用功能前验证所需依赖
+
+详见 [DEPENDENCY_VALIDATION.md](./DEPENDENCY_VALIDATION.md)
 
 ## 快速开始
 

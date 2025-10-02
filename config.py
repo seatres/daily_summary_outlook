@@ -4,6 +4,10 @@
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # ===== 基础配置 =====
 # 项目根目录
@@ -19,20 +23,49 @@ HISTORY_DIR.mkdir(exist_ok=True)
 
 
 # ===== 邮件配置 =====
+# 邮件客户端类型: 'graph', 'imap', 'generic', 'qq'
+# - graph: 使用Microsoft Graph API (适用于Outlook组织账户)
+# - imap: 使用IMAP协议 (适用于Outlook个人账户: @outlook.com, @hotmail.com等)
+# - generic: 通用IMAP客户端 (适用于任何支持IMAP/SMTP的邮箱，需要配置服务器地址)
+# - qq: QQ邮箱客户端 (QQ邮箱专用，已预配置服务器地址)
+EMAIL_CLIENT_TYPE = os.getenv("EMAIL_CLIENT_TYPE", "imap")
+
+# ===== Outlook配置 (当EMAIL_CLIENT_TYPE='graph'或'imap'时使用) =====
 # Outlook邮箱地址
 OUTLOOK_EMAIL = os.getenv("OUTLOOK_EMAIL", "")
 
-# Microsoft Graph API配置（用于读取邮件）
+# Microsoft Graph API配置（当EMAIL_CLIENT_TYPE='graph'时使用）
 OUTLOOK_CLIENT_ID = os.getenv("OUTLOOK_CLIENT_ID", "")
 OUTLOOK_CLIENT_SECRET = os.getenv("OUTLOOK_CLIENT_SECRET", "")
 OUTLOOK_TENANT_ID = os.getenv("OUTLOOK_TENANT_ID", "")
 
-# SMTP配置（用于发送邮件）
+# IMAP密码（当EMAIL_CLIENT_TYPE='imap'时使用，用于读取邮件）
+# 对于个人账户，这应该是应用专用密码
+OUTLOOK_IMAP_PASSWORD = os.getenv("OUTLOOK_IMAP_PASSWORD", "")
+
+# SMTP配置（用于发送邮件，两种客户端类型都需要）
+# 对于个人账户，这应该是应用专用密码（可以与IMAP密码相同）
 OUTLOOK_SMTP_PASSWORD = os.getenv("OUTLOOK_SMTP_PASSWORD", "")
 
+# ===== 通用IMAP配置 (当EMAIL_CLIENT_TYPE='generic'或'qq'时使用) =====
+# 邮箱地址
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS", "")
+
+# 邮箱密码或授权码
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
+
+# IMAP服务器配置（仅generic类型需要，qq类型已预配置）
+IMAP_SERVER = os.getenv("IMAP_SERVER", "")
+IMAP_PORT = os.getenv("IMAP_PORT", "993")
+
+# SMTP服务器配置（仅generic类型需要，qq类型已预配置）
+SMTP_SERVER = os.getenv("SMTP_SERVER", "")
+SMTP_PORT = os.getenv("SMTP_PORT", "587")
+SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "false")  # true使用465端口SSL, false使用587端口STARTTLS
+
 # 邮件筛选条件
-EMAIL_FILTER_SUBJECT = "每日总结"  # 主题完全匹配
-EMAIL_FILTER_SENDER = os.getenv("EMAIL_FILTER_SENDER", "")  # 发件人严格匹配
+EMAIL_FILTER_SUBJECT = "每日记录"  # 主题包含匹配
+EMAIL_FILTER_SENDER = os.getenv("EMAIL_FILTER_SENDER", "")  # 发件人包含匹配
 EMAIL_SEARCH_HOURS = 24  # 搜索最近24小时的邮件
 
 

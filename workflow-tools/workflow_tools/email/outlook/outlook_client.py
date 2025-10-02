@@ -26,12 +26,12 @@ except ImportError:
 
 from ..base.email_base import EmailClientBase, EmailResult, EmailMessage
 from ...exceptions.email_exceptions import (
-    OutlookAPIError,
     SMTPError,
     EmailAuthError,
     EmailConnectionError
 )
 from ...utils.config_manager import ConfigManager
+import re
 
 
 class OutlookClient(EmailClientBase):
@@ -116,18 +116,73 @@ class OutlookClient(EmailClientBase):
                 return True
             else:
                 error_msg = result.get("error_description", "未知错误")
-                self.logger.error(f"获取访问令牌失败: {error_msg}")
+                self.logger.error("获取访问令牌失败: %s", error_msg)
                 raise EmailAuthError(f"认证失败: {error_msg}")
 
+        except EmailAuthError:
+            raise
         except Exception as e:
-            self.logger.error(f"连接Outlook失败: {str(e)}")
-            raise EmailConnectionError(f"连接失败: {str(e)}")
+            self.logger.error("连接Outlook失败: %s", str(e))
+            raise EmailConnectionError(f"连接失败: {str(e)}") from e
 
     def disconnect(self) -> None:
         """断开连接（清除令牌）"""
         self.access_token = None
         self.app = None
         self.logger.info("已断开Outlook连接")
+
+    @staticmethod
+    def _escape_odata_string(value: str) -> str:
+        """
+        转义OData查询字符串中的特殊字符
+        
+        Args:
+            value: 要转义的字符串
+            
+        Returns:
+            转义后的字符串
+        """
+        if not value:
+            return value
+            
+        # OData规范要求单引号需要转义为两个单引号
+        # 参考: https://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part2-url-conventions.html
+        escaped = value.replace("'", "''")
+        
+        # 移除可能导致问题的控制字符
+        escaped = re.sub(r'[\x00-\x1F\x7F]', '', escaped)
+        
+        return escaped
+    
+    @staticmethod
+    def _validate_filter_input(value: str, field_name: str) -> None:
+        """
+        验证过滤器输入的合法性
+        
+        Args:
+            value: 要验证的值
+            field_name: 字段名称（用于错误消息）
+            
+        Raises:
+            ValueError: 如果输入不合法
+        """
+        if not value:
+            return
+            
+        # 检查长度限制（防止过长的输入）
+        max_length = 1000
+        if len(value) > max_length:
+            raise ValueError(f"{field_name}长度不能超过{max_length}个字符")
+        
+        # 检查是否包含潜在危险的字符模式
+        # 虽然我们会转义，但额外的验证可以提供更好的安全保障
+        dangerous_patterns = [
+            r'[\x00-\x08\x0B\x0C\x0E-\x1F]',  # 控制字符（除了\t \n \r）
+        ]
+        
+        for pattern in dangerous_patterns:
+            if re.search(pattern, value):
+                raise ValueError(f"{field_name}包含不允许的控制字符")
 
     def fetch_emails(
         self,
@@ -158,14 +213,25 @@ class OutlookClient(EmailClientBase):
             # 构建过滤条件
             filters = []
             if subject:
-                filters.append(f"subject eq '{subject}'")
+                # 验证并转义主题
+                self._validate_filter_input(subject, "邮件主题")
+                escaped_subject = self._escape_odata_string(subject)
+                filters.append(f"subject eq '{escaped_subject}'")
+                self.logger.debug("添加主题过滤器: %s", escaped_subject)
+            
             if sender:
-                filters.append(f"from/emailAddress/address eq '{sender}'")
+                # 验证并转义发件人
+                self._validate_filter_input(sender, "发件人邮箱")
+                escaped_sender = self._escape_odata_string(sender)
+                filters.append(f"from/emailAddress/address eq '{escaped_sender}'")
+                self.logger.debug("添加发件人过滤器: %s", escaped_sender)
+            
             if since_date:
                 # 转换为UTC时间并格式化为ISO 8601
                 utc_date = since_date.astimezone(timezone.utc)
                 date_str = utc_date.strftime('%Y-%m-%dT%H:%M:%SZ')
                 filters.append(f"receivedDateTime ge {date_str}")
+                self.logger.debug("添加时间过滤器: %s", date_str)
 
             # 构建查询参数
             params = {
@@ -191,7 +257,7 @@ class OutlookClient(EmailClientBase):
                 data = response.json()
                 messages = self._parse_messages(data.get("value", []))
                 
-                self.logger.info(f"成功获取 {len(messages)} 封邮件")
+                self.logger.info("成功获取 %d 封邮件", len(messages))
                 
                 return EmailResult(
                     success=True,
@@ -203,6 +269,11 @@ class OutlookClient(EmailClientBase):
                 self.logger.error(error_msg)
                 return EmailResult(success=False, error=error_msg)
 
+        except ValueError as e:
+            # 捕获输入验证错误
+            error_msg = f"输入验证失败: {str(e)}"
+            self.logger.error(error_msg)
+            return EmailResult(success=False, error=error_msg)
         except Exception as e:
             error_msg = f"获取邮件失败: {str(e)}"
             self.logger.error(error_msg)
@@ -258,28 +329,28 @@ class OutlookClient(EmailClientBase):
                     recipients = to + (cc or []) + (bcc or [])
                     server.send_message(msg, to_addrs=recipients)
 
-                self.logger.info(f"成功发送邮件到 {', '.join(to)}")
+                self.logger.info("成功发送邮件到 %s", ', '.join(to))
                 return True
 
             except smtplib.SMTPAuthenticationError as e:
                 error_msg = f"SMTP认证失败: {str(e)}"
                 self.logger.error(error_msg)
-                raise EmailAuthError(error_msg)
+                raise EmailAuthError(error_msg) from e
 
             except smtplib.SMTPException as e:
                 if attempt < max_retries - 1:
                     wait_time = 2 ** attempt
-                    self.logger.warning(f"SMTP发送失败，{wait_time}秒后重试: {str(e)}")
+                    self.logger.warning("SMTP发送失败，%d秒后重试: %s", wait_time, str(e))
                     time.sleep(wait_time)
                 else:
                     error_msg = f"SMTP发送失败（已重试{max_retries}次）: {str(e)}"
                     self.logger.error(error_msg)
-                    raise SMTPError(error_msg)
+                    raise SMTPError(error_msg) from e
 
             except Exception as e:
                 error_msg = f"发送邮件时发生未知错误: {str(e)}"
                 self.logger.error(error_msg)
-                raise SMTPError(error_msg)
+                raise SMTPError(error_msg) from e
 
         return False
 
@@ -329,7 +400,7 @@ class OutlookClient(EmailClientBase):
                 messages.append(message)
 
             except Exception as e:
-                self.logger.warning(f"解析邮件失败: {str(e)}")
+                self.logger.warning("解析邮件失败: %s", str(e))
                 continue
 
         return messages

@@ -14,7 +14,7 @@ This is an automated workflow system that reads daily summary emails from Outloo
 2. **Reusable Tools Package** (`workflow-tools/`): Modular components similar to n8n nodes
 
 The workflow-tools package is designed for reusability across projects and provides base classes with concrete implementations for:
-- **Email**: `OutlookClient` (Microsoft Graph API for reading, SMTP for sending)
+- **Email**: `OutlookClient` (Microsoft Graph API for reading, SMTP for sending), `OutlookIMAPClient`, `QQIMAPClient`, `GenericIMAPClient`
 - **AI Models**: `GeminiClient` (supports both old and new Google GenAI SDK versions)
 - **Scheduler**: `APSchedulerClient` (cron-based scheduling)
 - **Storage**: `R2Client` (Cloudflare R2), extensible to S3
@@ -23,7 +23,7 @@ The workflow-tools package is designed for reusability across projects and provi
 ### Workflow Execution Pattern
 
 The `DailySummaryWorkflow` class in `main.py` follows a 4-step process:
-1. **Fetch emails** via Graph API (filters by subject "每日总结" and sender)
+1. **Fetch emails** via Graph API or IMAP (filters by subject "每日总结" and sender)
 2. **Organize content** by sorting emails chronologically
 3. **AI analysis** using Gemini with custom prompt from `config.py`
 4. **Send results** via SMTP to configured recipient
@@ -65,6 +65,7 @@ if __name__ == "__main__":
 ### Configuration
 
 All configuration is centralized in `config.py` and `.env`:
+- Email client type: `EMAIL_CLIENT_TYPE` (imap/graph/qq/generic)
 - Email filters: `EMAIL_FILTER_SUBJECT`, `EMAIL_FILTER_SENDER`, `EMAIL_SEARCH_HOURS`
 - Schedule: `SCHEDULE_HOUR`, `SCHEDULE_MINUTE`, `TIMEZONE`
 - AI prompt: `AI_ANALYSIS_PROMPT`
@@ -73,6 +74,26 @@ All configuration is centralized in `config.py` and `.env`:
 Environment variables must be set in `.env` (see `env.example` for template).
 
 ## Important Implementation Details
+
+### Email Client Types
+
+The system supports 4 email client types configured via `EMAIL_CLIENT_TYPE`:
+
+1. **imap**: Outlook personal accounts (@outlook.com, @hotmail.com)
+   - Uses IMAP for reading, SMTP for sending
+   - Requires app-specific password from Microsoft account security settings
+
+2. **graph**: Outlook organizational accounts
+   - Uses Microsoft Graph API (OAuth 2.0) for reading, SMTP for sending
+   - Requires Azure AD app registration with `Mail.Read` permission
+   - Admin consent required in Azure Portal
+
+3. **qq**: QQ email (@qq.com)
+   - Pre-configured IMAP/SMTP servers
+   - Requires authorization code (not password) from QQ email settings
+
+4. **generic**: Any IMAP-compatible email provider
+   - Requires manual configuration of IMAP/SMTP servers in `.env`
 
 ### Microsoft Graph API Authentication
 

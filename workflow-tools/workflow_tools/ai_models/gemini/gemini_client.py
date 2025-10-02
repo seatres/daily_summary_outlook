@@ -29,17 +29,17 @@ from ...utils.config_manager import ConfigManager
 from ...utils.cache_manager import CacheManager
 from ...utils.file_utils import get_cache_key
 
-# 导入settings配置
+# 导入配置
 try:
-    # 尝试从主项目导入settings
+    # 尝试从主项目导入config
     import sys
     import os
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
     sys.path.insert(0, project_root)
-    from config.settings import GEMINI_MODEL_NAME, GEMINI_TEMPERATURE
+    from config import GEMINI_MODEL_NAME, GEMINI_TEMPERATURE
     SETTINGS_AVAILABLE = True
 except ImportError:
-    # 如果无法导入settings，使用默认值
+    # 如果无法导入config，使用默认值
     GEMINI_MODEL_NAME = "gemini-1.5-flash"
     GEMINI_TEMPERATURE = 1.0
     SETTINGS_AVAILABLE = False
@@ -406,7 +406,7 @@ class GeminiClient(AIClientBase):
         try:
             # 尝试配置Gemini API
             if NEW_SDK:
-                client = genai.Client(api_key=api_key.strip())
+                _ = genai.Client(api_key=api_key.strip())  # 仅用于验证API密钥
             else:
                 genai.configure(api_key=api_key.strip())
 
