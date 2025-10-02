@@ -65,7 +65,7 @@ SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "false")  # true使用465端口SSL, fal
 
 # 邮件筛选条件
 EMAIL_FILTER_SUBJECT = "每日记录"  # 主题包含匹配
-EMAIL_FILTER_SENDER = os.getenv("EMAIL_FILTER_SENDER", "")  # 发件人包含匹配
+# EMAIL_FILTER_SENDER = os.getenv("EMAIL_FILTER_SENDER", "")  # 发件人包含匹配（已禁用，仅使用主题过滤）
 EMAIL_SEARCH_HOURS = 24  # 搜索最近24小时的邮件
 
 

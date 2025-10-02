@@ -39,14 +39,14 @@ def test_qq_email():
     email_client_type = os.getenv("EMAIL_CLIENT_TYPE", "")
     email_address = os.getenv("EMAIL_ADDRESS", "")
     email_password = os.getenv("EMAIL_PASSWORD", "")
-    email_filter_sender = os.getenv("EMAIL_FILTER_SENDER", "")
+    email_filter_subject = os.getenv("EMAIL_FILTER_SUBJECT", "每日记录")
     summary_recipient = os.getenv("SUMMARY_RECIPIENT", "")
     
     print(f"\n📋 当前配置：")
     print(f"   邮件客户端类型: {email_client_type}")
     print(f"   邮箱地址: {email_address if email_address else '❌ 未配置'}")
     print(f"   授权码: {'✓ 已配置' if email_password else '❌ 未配置'}")
-    print(f"   筛选发件人: {email_filter_sender if email_filter_sender else '❌ 未配置'}")
+    print(f"   筛选主题: {email_filter_subject}")
     print(f"   总结收件人: {summary_recipient if summary_recipient else '❌ 未配置'}")
     
     # 检查配置

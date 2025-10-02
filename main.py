@@ -219,10 +219,9 @@ class DailySummaryWorkflow:
                 # 计算时间范围（最近24小时）
                 since_date = datetime.now(timezone.utc) - timedelta(hours=config.EMAIL_SEARCH_HOURS)
 
-                # 获取邮件
+                # 获取邮件（仅使用主题过滤）
                 result = self.email_client.fetch_emails(
                     subject=config.EMAIL_FILTER_SUBJECT,
-                    sender=config.EMAIL_FILTER_SENDER,
                     since_date=since_date
                 )
 

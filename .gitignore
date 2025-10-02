@@ -121,5 +121,8 @@ tmp/
 temp/
 *.tmp
 
+# 历史记录文件
+history/*.json
+
 #Ignore cursor AI rules
 .cursor/rules/codacy.mdc
