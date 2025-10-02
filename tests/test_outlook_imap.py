@@ -10,7 +10,8 @@ import sys
 from dotenv import load_dotenv
 
 # 添加workflow-tools到Python路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'workflow-tools'))
+# 从 tests/ 目录向上一级到项目根目录，然后访问 workflow-tools
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'workflow-tools'))
 
 from workflow_tools.email.outlook.outlook_imap_client import OutlookIMAPClient
 

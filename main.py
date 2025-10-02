@@ -216,24 +216,31 @@ class DailySummaryWorkflow:
                 # 连接到Outlook
                 self.email_client.connect()
 
-                # 计算时间范围（最近24小时）
-                since_date = datetime.now(timezone.utc) - timedelta(hours=config.EMAIL_SEARCH_HOURS)
+                try:
+                    # 计算时间范围（最近24小时）
+                    since_date = datetime.now(timezone.utc) - timedelta(hours=config.EMAIL_SEARCH_HOURS)
 
-                # 获取邮件（仅使用主题过滤）
-                result = self.email_client.fetch_emails(
-                    subject=config.EMAIL_FILTER_SUBJECT,
-                    since_date=since_date
-                )
+                    # 获取邮件（仅使用主题过滤）
+                    result = self.email_client.fetch_emails(
+                        subject=config.EMAIL_FILTER_SUBJECT,
+                        since_date=since_date
+                    )
 
-                if result.success:
-                    return result.messages
-                else:
-                    self.logger.error(f"获取邮件失败: {result.error}")
-                    if attempt < max_retries - 1:
-                        self.logger.info(f"将在{config.RETRY_DELAY}秒后重试...")
-                        import time
-                        time.sleep(config.RETRY_DELAY)
-                    continue
+                    if result.success:
+                        return result.messages
+                    else:
+                        self.logger.error(f"获取邮件失败: {result.error}")
+                        if attempt < max_retries - 1:
+                            self.logger.info(f"将在{config.RETRY_DELAY}秒后重试...")
+                            import time
+                            time.sleep(config.RETRY_DELAY)
+
+                finally:
+                    # 确保在任何情况下都断开连接
+                    try:
+                        self.email_client.disconnect()
+                    except Exception as disconnect_error:
+                        self.logger.warning(f"断开连接时出错: {str(disconnect_error)}")
 
             except Exception as e:
                 self.logger.error(f"获取邮件时发生异常: {str(e)}", exc_info=True)
@@ -241,7 +248,6 @@ class DailySummaryWorkflow:
                     self.logger.info(f"将在{config.RETRY_DELAY}秒后重试...")
                     import time
                     time.sleep(config.RETRY_DELAY)
-                continue
 
         self.logger.error(f"获取邮件失败（已重试{max_retries}次）")
         return []

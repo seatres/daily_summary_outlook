@@ -10,7 +10,8 @@ import os
 from dotenv import load_dotenv
 
 # 添加workflow-tools到Python路径
-sys.path.insert(0, str(Path(__file__).parent / "workflow-tools"))
+# 从 tests/ 目录向上一级到项目根目录，然后访问 workflow-tools
+sys.path.insert(0, str(Path(__file__).parent.parent / "workflow-tools"))
 
 from workflow_tools.email import QQIMAPClient
 from workflow_tools.exceptions.email_exceptions import (
