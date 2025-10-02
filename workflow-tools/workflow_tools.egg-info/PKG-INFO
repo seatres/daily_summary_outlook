@@ -1,0 +1,120 @@
+Metadata-Version: 2.1
+Name: workflow-tools
+Version: 0.1.0
+Summary: 可重用的API访问工具包
+Author: Research Team
+Author-email: research@example.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: typing-extensions>=4.0.0
+Provides-Extra: ai
+Requires-Dist: google-generativeai>=0.3.0; extra == "ai"
+Provides-Extra: notes
+Requires-Dist: notion-client>=2.0.0; extra == "notes"
+Provides-Extra: storage
+Requires-Dist: boto3>=1.26.0; extra == "storage"
+Requires-Dist: botocore>=1.29.0; extra == "storage"
+Provides-Extra: utils
+Requires-Dist: ratelimit>=2.2.0; extra == "utils"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.0.0; extra == "dev"
+Provides-Extra: all
+Requires-Dist: google-generativeai>=0.3.0; extra == "all"
+Requires-Dist: notion-client>=2.0.0; extra == "all"
+Requires-Dist: boto3>=1.26.0; extra == "all"
+Requires-Dist: botocore>=1.29.0; extra == "all"
+Requires-Dist: ratelimit>=2.2.0; extra == "all"
+
+# workflow-tools
+
+可重用的API访问工具包，提供标准化的AI模型、笔记工具、存储服务接口。
+
+## 功能特性
+
+- 🤖 **AI模型支持**: Gemini AI (可扩展OpenAI、Anthropic等)
+- 📝 **笔记工具**: Notion (可扩展Obsidian等)
+- 💾 **存储服务**: Cloudflare R2 (可扩展AWS S3等)
+- 🔄 **智能缓存**: 基于文件内容的缓存机制
+- 📊 **进度回调**: 实时处理进度反馈
+- 🛡️ **错误处理**: 完善的异常处理和重试机制
+
+## 安装
+
+```bash
+# 安装所有模块
+pip install -e .[all]
+
+# 按需安装
+pip install -e .[ai,notes,storage]
+```
+
+## 快速开始
+
+### 1. 环境配置
+
+创建 `.env` 文件：
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key
+NOTION_TOKEN=your_notion_token
+NOTION_DATABASE_ID=your_database_id
+R2_ACCESS_KEY_ID=your_r2_access_key
+R2_SECRET_ACCESS_KEY=your_r2_secret_key
+R2_ENDPOINT=https://your-endpoint.r2.cloudflarestorage.com
+R2_BUCKET_NAME=your_bucket_name
+```
+
+### 2. 使用示例
+
+```python
+from workflow_tools.ai_models.gemini import GeminiClient
+from workflow_tools.notes.notion import NotionClient
+from workflow_tools.storage.cloudflare_r2 import R2Client
+
+# 初始化客户端
+ai_client = GeminiClient()
+notes_client = NotionClient()
+storage_client = R2Client()
+
+# 分析文档
+result = ai_client.analyze_document(
+    file_path="document.pdf",
+    prompt="总结这篇文档的主要内容"
+)
+
+if result.success:
+    # 创建笔记
+    notes_client.create_page(
+        title="文档总结",
+        content=result.content
+    )
+
+    # 上传文件到存储
+    storage_client.upload_file(
+        file_path="document.pdf",
+        object_name="documents/document.pdf"
+    )
+```
+
+## 开发
+
+```bash
+# 安装开发依赖
+pip install -e .[dev]
+
+# 运行测试
+pytest
+
+# 代码格式化
+black workflow_tools/
+```
